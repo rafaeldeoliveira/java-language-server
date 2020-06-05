@@ -15,7 +15,18 @@
             <url>file://${basedir}/dist</url>
         </repository>
     </distributionManagement>
-
+    <repositories>
+        <repository>
+            <id>teavm-dev</id>
+            <url>https://dl.bintray.com/konsoletyper/teavm</url>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>teavm-dev</id>
+            <url>https://dl.bintray.com/konsoletyper/teavm</url>
+        </pluginRepository>
+    </pluginRepositories>
     <dependencies>
         <!-- JSON support -->
         <dependency>
@@ -123,6 +134,35 @@
                 <outputDirectory>${project.basedir}/dist/classpath</outputDirectory>
                 <finalName>java-language-server</finalName>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.teavm</groupId>
+                <artifactId>teavm-maven-plugin</artifactId>
+                <version>0.7.0-dev-1113</version>
+                <dependencies>
+                    <!-- This dependency is required by TeaVM to emulate subset of Java class library -->
+                    <dependency>
+                        <groupId>org.teavm</groupId>
+                        <artifactId>teavm-classlib</artifactId>
+                        <version>0.7.0-dev-1113</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <phase>process-classes</phase>
+                        <configuration>
+                            <mainClass>org.javacs.Main</mainClass>
+                            <mainPageIncluded>true</mainPageIncluded>
+                            <debugInformationGenerated>true</debugInformationGenerated>
+                            <sourceMapsGenerated>true</sourceMapsGenerated>
+                            <optimizationLevel>SIMPLE</optimizationLevel>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
