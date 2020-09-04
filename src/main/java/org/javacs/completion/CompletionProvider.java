@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,6 +46,8 @@ import org.javacs.lsp.CompletionItem;
 import org.javacs.lsp.CompletionItemKind;
 import org.javacs.lsp.CompletionList;
 import org.javacs.lsp.InsertTextFormat;
+import org.javacs.lsp.TextEdit;
+import org.javacs.rewrite.AddImport;
 
 public class CompletionProvider {
     private final CompilerProvider compiler;
@@ -153,7 +156,7 @@ public class CompletionProvider {
             var path = new FindCompletionsAt(task.task).scan(task.root(), cursor);
             switch (path.getLeaf().getKind()) {
                 case IDENTIFIER:
-                    return completeIdentifier(task, path, partial, endsWithParen);
+                    return completeIdentifier(task, path, partial, endsWithParen, file);
                 case MEMBER_SELECT:
                     return completeMemberSelect(task, path, partial, endsWithParen);
                 case MEMBER_REFERENCE:
@@ -161,7 +164,7 @@ public class CompletionProvider {
                 case SWITCH:
                     return completeSwitchConstant(task, path, partial);
                 case IMPORT:
-                    return completeImport(qualifiedPartialIdentifier(contents, (int) cursor));
+                    return completeImport(qualifiedPartialIdentifier(contents, (int) cursor), file);
                 default:
                     var list = new CompletionList();
                     addKeywords(path, partial, list);
@@ -229,13 +232,13 @@ public class CompletionProvider {
         return c == '.' || Character.isJavaIdentifierPart(c);
     }
 
-    private CompletionList completeIdentifier(CompileTask task, TreePath path, String partial, boolean endsWithParen) {
+    private CompletionList completeIdentifier(CompileTask task, TreePath path, String partial, boolean endsWithParen, Path file) {
         LOG.info("...complete identifiers");
         var list = new CompletionList();
         list.items = completeUsingScope(task, path, partial, endsWithParen);
         addStaticImports(task, path.getCompilationUnit(), partial, endsWithParen, list);
         if (!list.isIncomplete && partial.length() > 0 && Character.isUpperCase(partial.charAt(0))) {
-            addClassNames(path.getCompilationUnit(), partial, list);
+            addClassNames(path.getCompilationUnit(), partial, list, file);
         }
         addKeywords(path, partial, list);
         return list;
@@ -332,13 +335,13 @@ public class CompletionProvider {
         return staticImport.contentEquals("*") || staticImport.contentEquals(member.getSimpleName());
     }
 
-    private void addClassNames(CompilationUnitTree root, String partial, CompletionList list) {
+    private void addClassNames(CompilationUnitTree root, String partial, CompletionList list, Path file) {
         var packageName = Objects.toString(root.getPackageName(), "");
         var uniques = new HashSet<String>();
         var previousSize = list.items.size();
         for (var className : compiler.packagePrivateTopLevelTypes(packageName)) {
             if (!StringSearch.matchesPartialName(className, partial)) continue;
-            list.items.add(classItem(className));
+            list.items.add(classItem(className, file));
             uniques.add(className);
         }
         for (var className : compiler.publicTopLevelTypes()) {
@@ -348,7 +351,7 @@ public class CompletionProvider {
                 list.isIncomplete = true;
                 break;
             }
-            list.items.add(classItem(className));
+            list.items.add(classItem(className, file));
             uniques.add(className);
         }
         LOG.info("...found " + (list.items.size() - previousSize) + " class names");
@@ -545,7 +548,7 @@ public class CompletionProvider {
         return new CompletionList(false, list);
     }
 
-    private CompletionList completeImport(String path) {
+    private CompletionList completeImport(String path, Path file) {
         LOG.info("...complete import");
         var names = new HashSet<String>();
         var list = new CompletionList();
@@ -559,7 +562,7 @@ public class CompletionProvider {
                 names.add(segment);
                 var isClass = end == path.length();
                 if (isClass) {
-                    list.items.add(classItem(className));
+                    list.items.add(classItem(className, file));
                 } else {
                     list.items.add(packageItem(segment));
                 }
@@ -579,8 +582,18 @@ public class CompletionProvider {
         return i;
     }
 
-    private CompletionItem classItem(String className) {
+    private CompletionItem classItem(String className, Path file) {
         var i = new CompletionItem();
+
+        i.additionalTextEdits = new ArrayList<>();
+
+        var add = new AddImport(file, className);
+        TextEdit[] edits = add.rewrite(compiler).get(file);
+        if(edits != null)
+        {
+            Collections.addAll(i.additionalTextEdits, edits);
+        }
+        
         i.label = simpleName(className).toString();
         i.kind = CompletionItemKind.Class;
         i.detail = className;
