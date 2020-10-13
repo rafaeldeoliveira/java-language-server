@@ -32,6 +32,8 @@ public interface CompilerProvider {
     CompileTask compile(Path... files);
 
     CompileTask compile(Collection<? extends JavaFileObject> sources);
-
+    
+    boolean containsImport(Path file, String className);
+    
     Path NOT_FOUND = Paths.get("");
 }

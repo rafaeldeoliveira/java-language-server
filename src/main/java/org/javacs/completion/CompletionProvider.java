@@ -586,12 +586,13 @@ public class CompletionProvider {
         var i = new CompletionItem();
 
         i.additionalTextEdits = new ArrayList<>();
-
-        var add = new AddImport(file, className);
-        TextEdit[] edits = add.rewrite(compiler).get(file);
-        if(edits != null)
-        {
-            Collections.addAll(i.additionalTextEdits, edits);
+        
+        if (!compiler.containsImport(file, className)) {
+            var add = new AddImport(file, className);
+            TextEdit[] edits = add.rewrite(compiler).get(file);
+            if (edits != null) {
+                Collections.addAll(i.additionalTextEdits, edits);
+            }
         }
         
         i.label = simpleName(className).toString();

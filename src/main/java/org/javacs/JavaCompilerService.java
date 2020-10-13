@@ -205,7 +205,7 @@ class JavaCompilerService implements CompilerProvider {
         return List.of("TODO");
     }
 
-    private boolean containsImport(Path file, String className) {
+    public boolean containsImport(Path file, String className) {
         var packageName = packageName(className);
         if (FileStore.packageName(file).equals(packageName)) return true;
         var star = packageName + ".*";
